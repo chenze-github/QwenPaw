@@ -12,6 +12,7 @@ sub-agent delegation, etc.).
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -146,6 +147,21 @@ class _EnvelopeTracker:
         self._reasoning_msg_ids: set[str] = set()
         self._streamed_text_msg_ids: set[str] = set()
 
+    @staticmethod
+    def _tool_raw_input(data: dict[str, Any]) -> Any:
+        arguments = data.get("arguments")
+        if arguments is None:
+            return None
+        if isinstance(arguments, str):
+            stripped = arguments.strip()
+            if not stripped:
+                return None
+            try:
+                return json.loads(stripped)
+            except ValueError:
+                return stripped
+        return arguments
+
     # pylint: disable=too-many-return-statements, too-many-branches
     def process(
         self,
@@ -192,6 +208,7 @@ class _EnvelopeTracker:
                                     ),
                                     str(data.get("name") or "tool"),
                                     status="in_progress",
+                                    raw_input=self._tool_raw_input(data),
                                 ),
                             ]
                 return []

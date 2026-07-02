@@ -340,6 +340,42 @@ def test_envelope_tracker_does_not_duplicate_streamed_final_text():
     assert not final_updates
 
 
+def test_envelope_tracker_forwards_tool_arguments_as_raw_input():
+    from qwenpaw.schemas import (
+        DataContent,
+        FunctionCall,
+        Message,
+        MessageType,
+        Role,
+        RunStatus,
+    )
+
+    tracker = _EnvelopeTracker()
+    message = Message(
+        id="msg-tool",
+        type=MessageType.PLUGIN_CALL,
+        role=Role.ASSISTANT,
+        status=RunStatus.Completed,
+        content=[
+            DataContent(
+                data=FunctionCall(
+                    call_id="t1",
+                    name="execute_shell_command",
+                    arguments='{"command": "pytest -q"}',
+                ).model_dump(),
+            ),
+        ],
+    )
+    message.object = "message"
+
+    [update] = tracker.process(message)
+
+    assert update.session_update == "tool_call"
+    assert update.tool_call_id == "t1"
+    assert update.title == "execute_shell_command"
+    assert update.raw_input == {"command": "pytest -q"}
+
+
 def test_usage_meta_includes_model(monkeypatch):
     from qwenpaw.token_usage.model_wrapper import TokenRecordingModelWrapper
 
